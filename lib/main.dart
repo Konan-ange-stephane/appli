@@ -1,203 +1,261 @@
 import 'package:flutter/material.dart';
 
 void main() {
-  runApp(MaterialApp(
-    debugShowCheckedModeBanner: false,
-    home: HomeScreen(),
-  ));
+  runApp(const MyApp());
 }
 
-class HomeScreen extends StatefulWidget {
+class MyApp extends StatelessWidget {
+  const MyApp({Key? key}) : super(key: key);
+
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData.dark(),
+      home: const ControlInterface(),
+    );
+  }
 }
 
-class _HomeScreenState extends State<HomeScreen> {
-  bool isSilence = false; // État du switch
+class ControlInterface extends StatelessWidget {
+  const ControlInterface({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.blue,
-        centerTitle: true,
-        leading: IconButton(
-          icon: Icon(Icons.menu, color: Colors.white), // bouton trois traits à gauche
-          onPressed: () {
-            print("Menu cliqué !");
-          },
-        ),
-        title: Text(
-          "Télécommande",
-          style: TextStyle(color: Colors.white),
-        ),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.error_outline, color: Colors.white), // bouton exclamation
-            onPressed: () {
-              print("Bouton ! cliqué");
-            },
-          ),
-        ],
-      ),
+      backgroundColor: Colors.black,
       body: Stack(
         children: [
-          Center(
-            child: Stack(
-              alignment: Alignment.center,
+          // Top bar with icons
+          Positioned(
+            top: 40,
+            left: 0,
+            right: 0,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Left icons
+                  Row(
+                    children: [
+                      _buildTopIcon(Icons.rectangle_outlined),
+                      const SizedBox(width: 20),
+                      _buildTopIcon(Icons.lightbulb_outline),
+                      const SizedBox(width: 20),
+                      _buildTopIcon(Icons.local_parking),
+                      const SizedBox(width: 20),
+                      _buildTopIcon(Icons.warning_amber_outlined),
+                      const SizedBox(width: 20),
+                      _buildTopIconWithS(),
+                    ],
+                  ),
+                  // Right icons
+                  Row(
+                    children: [
+                      _buildTopIcon(Icons.build_outlined),
+                      const SizedBox(width: 20),
+                      _buildTopIcon(Icons.menu),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Code icon top right
+          Positioned(
+            top: 110,
+            right: 20,
+            child: Container(
+              width: 50,
+              height: 50,
+              decoration: BoxDecoration(
+                color: const Color(0xFF1A4D21),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.code, color: Colors.white, size: 24),
+            ),
+          ),
+
+          // Left control (Up/Down)
+          Positioned(
+            left: 80,
+            bottom: 100,
+            child: _buildCircularControl(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _buildControlButton('F', isTop: true),
+                  Container(
+                    height: 1,
+                    width: 80,
+                    color: const Color(0xFF1A4D21),
+                  ),
+                  _buildControlButton('B', isBottom: true),
+                ],
+              ),
+            ),
+          ),
+
+          // Right control (Left/Right)
+          Positioned(
+            right: 80,
+            bottom: 100,
+            child: _buildCircularControl(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _buildControlButton('G', isLeft: true),
+                  Container(
+                    width: 1,
+                    height: 80,
+                    color: const Color(0xFF1A4D21),
+                  ),
+                  _buildControlButton('R', isRight: true),
+                ],
+              ),
+            ),
+          ),
+
+          // Top center icons
+          Positioned(
+            top: 250,
+            left: 0,
+            right: 0,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Grand cercle avec flèches
-                Container(
-                  width: 250,
-                  height: 250,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.blue.shade200,
-                  ),
-                ),
-                // Flèche haut
-                Positioned(
-                  top: 30,
-                  child: IconButton(
-                    iconSize: 50,
-                    icon: Icon(Icons.arrow_drop_up, color: Colors.white),
-                    onPressed: () => print("Avancer"),
-                  ),
-                ),
-                // Flèche bas
-                Positioned(
-                  bottom: 30,
-                  child: IconButton(
-                    iconSize: 50,
-                    icon: Icon(Icons.arrow_drop_down, color: Colors.white),
-                    onPressed: () => print("Reculer"),
-                  ),
-                ),
-                // Flèche gauche
-                Positioned(
-                  left: 30,
-                  child: IconButton(
-                    iconSize: 50,
-                    icon: Icon(Icons.arrow_left, color: Colors.white),
-                    onPressed: () => print("Gauche"),
-                  ),
-                ),
-                // Flèche droite
-                Positioned(
-                  right: 30,
-                  child: IconButton(
-                    iconSize: 50,
-                    icon: Icon(Icons.arrow_right, color: Colors.white),
-                    onPressed: () => print("Droite"),
-                  ),
-                ),
-                // bouton central ON/OFF
-                Positioned(
-                  child: GestureDetector(
-                    onTap: () => print("ON/OFF cliqué"),
-                    child: Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.blue,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black38,
-                            blurRadius: 8,
-                            offset: Offset(0, 4),
-                          )
-                        ],
-                      ),
-                      child: Center(
-                        child: Icon(Icons.power_settings_new,
-                            color: Colors.white, size: 40),
-                      ),
-                    ),
-                  ),
-                ),
+                const SizedBox(width: 100),
+                _buildCenterIcon(Icons.speed_outlined),
+                const SizedBox(width: 400),
+                _buildCenterIcon(Icons.campaign),
               ],
             ),
           ),
 
-          // Switch latéral style iPhone sous le bouton d'exclamation
+          // Center icon
           Positioned(
-            top: 80, // ajuste selon ton design
-            right: 16,
-            child: Column(
-              children: [
-                GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      isSilence = !isSilence;
-                    });
-                  },
-                  child: Container(
-                    width: 60,
-                    height: 30,
-                    padding: EdgeInsets.all(3),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(15),
-                      color: isSilence ? Colors.green : Colors.red,
-                    ),
-                    child: AnimatedAlign(
-                      duration: Duration(milliseconds: 200),
-                      alignment: isSilence ? Alignment.centerRight : Alignment.centerLeft,
-                      child: Container(
-                        width: 24,
-                        height: 24,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                SizedBox(height: 5),
-                Text(
-                  isSilence ?  'Mode joystick' : 'Mode bouton',
-                  style: TextStyle(color: Colors.black, fontSize: 12),
-                ),
-              ],
+            top: 340,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: _buildCenterIcon(Icons.gps_fixed),
             ),
           ),
 
-          // Bouton + positionné en bas à droite juste au-dessus de la barre de navigation
+          // Bottom center arrow
           Positioned(
-            bottom: 70,
-            right: 16,
-            child: FloatingActionButton(
-              backgroundColor: Colors.blue,
-              onPressed: () {
-                print("Bouton + cliqué !");
-              },
-              child: Icon(Icons.add, color: Colors.white),
+            bottom: 20,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Icon(
+                Icons.keyboard_arrow_up,
+                color: Colors.white.withOpacity(0.5),
+                size: 30,
+              ),
             ),
           ),
         ],
       ),
-      bottomNavigationBar: BottomAppBar(
-        shape: CircularNotchedRectangle(),
-        color: Colors.blue,
-        child: SizedBox(
-          height: 60,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    );
+  }
+
+  Widget _buildTopIcon(IconData icon, {bool hasInnerCircle = false, Widget? customChild}) {
+    return Container(
+      width: 50,
+      height: 50,
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A4D21),
+        shape: BoxShape.circle,
+      ),
+      child: customChild ??
+          (hasInnerCircle
+              ? Stack(
+            alignment: Alignment.center,
             children: [
-              IconButton(
-                icon: Icon(Icons.home, color: Colors.white),
-                onPressed: () {
-                  print("Home cliqué !");
-                },
-              ),
-              IconButton(
-                icon: Icon(Icons.settings, color: Colors.white),
-                onPressed: () {
-                  print("Settings cliqué !");
-                },
+              Icon(icon, color: Colors.white, size: 30),
+              Container(
+                width: 10,
+                height: 10,
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                ),
               ),
             ],
+          )
+              : Icon(icon, color: Colors.white, size: 24)),
+    );
+  }
+
+  Widget _buildTopIconWithS() {
+    return Container(
+      width: 50,
+      height: 50,
+      decoration: BoxDecoration(
+        color: const Color(0xFF0D3A3A),
+        shape: BoxShape.circle,
+      ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          const Icon(Icons.circle, color: Colors.white, size: 30),
+          const Text(
+            'S',
+            style: TextStyle(
+              color: Colors.red,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCenterIcon(IconData icon) {
+    return Container(
+      width: 50,
+      height: 50,
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A4D21),
+        shape: BoxShape.circle,
+      ),
+      child: Icon(icon, color: Colors.white, size: 24),
+    );
+  }
+
+  Widget _buildCircularControl({required Widget child}) {
+    return Container(
+      width: 200,
+      height: 200,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: RadialGradient(
+          colors: [
+            const Color(0xFF1A4D21).withOpacity(0.6),
+            const Color(0xFF183E1D).withOpacity(0.4),
+            Colors.transparent,
+          ],
+          stops: const [0.0, 0.6, 1.0],
+        ),
+      ),
+      child: child,
+    );
+  }
+
+  Widget _buildControlButton(String text,
+      {bool isTop = false, bool isBottom = false, bool isLeft = false, bool isRight = false}) {
+    return Expanded(
+      child: Center(
+        child: Text(
+          text,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 42,
+            fontWeight: FontWeight.w300,
           ),
         ),
       ),
