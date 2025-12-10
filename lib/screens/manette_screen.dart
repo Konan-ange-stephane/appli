@@ -1,94 +1,258 @@
 import 'package:flutter/material.dart';
-import 'package:telecommande/services/command_service.dart';
-import 'package:telecommande/widgets/direction_button.dart';
-import 'package:telecommande/widgets/speed_slider.dart';
-import 'package:telecommande/widgets/stop_button.dart';
 
-/// Écran du Mode Manette avec boutons directionnels, slider de vitesse et bouton STOP
-class ManetteScreen extends StatefulWidget {
+/// Écran Mode Manette avec l'interface de contrôle de mode_1
+class ManetteScreen extends StatelessWidget {
   const ManetteScreen({super.key});
-
-  @override
-  State<ManetteScreen> createState() => _ManetteScreenState();
-}
-
-class _ManetteScreenState extends State<ManetteScreen> {
-  final CommandService _commandService = CommandService();
-  double _speed = 150.0;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Mode Manette'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
-      body: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+      backgroundColor: Colors.black,
+      body: Stack(
         children: [
-          // Bouton Avant
-          DirectionButton(
-            label: 'Avant',
-            icon: Icons.arrow_upward,
-            onPressed: () {
-              _commandService.sendCommand('F:${_speed.toInt()}');
-            },
+          // Bouton retour
+          Positioned(
+            top: 40,
+            left: 10,
+            child: IconButton(
+              icon: const Icon(Icons.arrow_back, color: Colors.white),
+              onPressed: () => Navigator.pop(context),
+            ),
           ),
-          const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Bouton Gauche
-              DirectionButton(
-                label: 'Gauche',
-                icon: Icons.arrow_back,
-                onPressed: () {
-                  _commandService.sendCommand('L:${_speed.toInt()}');
-                },
+
+          // Top bar with icons
+          Positioned(
+            top: 40,
+            left: 60,
+            right: 0,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Left icons
+                  Row(
+                    children: [
+                      _buildTopIcon(Icons.rectangle_outlined),
+                      const SizedBox(width: 20),
+                      _buildTopIcon(Icons.lightbulb_outline),
+                      const SizedBox(width: 20),
+                      _buildTopIcon(Icons.local_parking),
+                      const SizedBox(width: 20),
+                      _buildTopIcon(Icons.warning_amber_outlined),
+                      const SizedBox(width: 20),
+                      _buildTopIconWithS(),
+                    ],
+                  ),
+                  // Right icons
+                  Row(
+                    children: [
+                      _buildTopIcon(Icons.build_outlined),
+                      const SizedBox(width: 20),
+                      _buildTopIcon(Icons.menu),
+                    ],
+                  ),
+                ],
               ),
-              const SizedBox(width: 40),
-              // Bouton Droite
-              DirectionButton(
-                label: 'Droite',
-                icon: Icons.arrow_forward,
-                onPressed: () {
-                  _commandService.sendCommand('R:${_speed.toInt()}');
-                },
+            ),
+          ),
+
+          // Code icon top right
+          Positioned(
+            top: 110,
+            right: 20,
+            child: Container(
+              width: 50,
+              height: 50,
+              decoration: const BoxDecoration(
+                color: Color(0xFF1A4D21),
+                shape: BoxShape.circle,
               ),
-            ],
+              child: const Icon(Icons.code, color: Colors.white, size: 24),
+            ),
           ),
-          const SizedBox(height: 20),
-          // Bouton Arrière
-          DirectionButton(
-            label: 'Arrière',
-            icon: Icons.arrow_downward,
-            onPressed: () {
-              _commandService.sendCommand('B:${_speed.toInt()}');
-            },
+
+          // Left control (Up/Down - Forward/Backward)
+          Positioned(
+            left: 80,
+            bottom: 100,
+            child: _buildCircularControl(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _buildControlButton('F', isTop: true),
+                  Container(
+                    height: 1,
+                    width: 80,
+                    color: const Color(0xFF1A4D21),
+                  ),
+                  _buildControlButton('B', isBottom: true),
+                ],
+              ),
+            ),
           ),
-          const SizedBox(height: 40),
-          // Slider de vitesse
-          SpeedSlider(
-            value: _speed,
-            onChanged: (value) {
-              setState(() {
-                _speed = value;
-              });
-            },
+
+          // Right control (Left/Right)
+          Positioned(
+            right: 80,
+            bottom: 100,
+            child: _buildCircularControl(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _buildControlButton('G', isLeft: true),
+                  Container(
+                    width: 1,
+                    height: 80,
+                    color: const Color(0xFF1A4D21),
+                  ),
+                  _buildControlButton('R', isRight: true),
+                ],
+              ),
+            ),
           ),
-          const SizedBox(height: 40),
-          // Bouton STOP
-          StopButton(
-            onPressed: () {
-              _commandService.sendCommand('S');
-            },
+
+          // Top center icons
+          Positioned(
+            top: 250,
+            left: 0,
+            right: 0,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const SizedBox(width: 100),
+                _buildCenterIcon(Icons.speed_outlined),
+                const SizedBox(width: 400),
+                _buildCenterIcon(Icons.campaign),
+              ],
+            ),
+          ),
+
+          // Center icon
+          Positioned(
+            top: 340,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: _buildCenterIcon(Icons.gps_fixed),
+            ),
+          ),
+
+          // Bottom center arrow
+          Positioned(
+            bottom: 20,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Icon(
+                Icons.keyboard_arrow_up,
+                color: Colors.white.withOpacity(0.5),
+                size: 30,
+              ),
+            ),
           ),
         ],
       ),
     );
   }
-}
 
+  Widget _buildTopIcon(IconData icon, {bool hasInnerCircle = false, Widget? customChild}) {
+    return Container(
+      width: 50,
+      height: 50,
+      decoration: const BoxDecoration(
+        color: Color(0xFF1A4D21),
+        shape: BoxShape.circle,
+      ),
+      child: customChild ??
+          (hasInnerCircle
+              ? Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Icon(icon, color: Colors.white, size: 30),
+                    Container(
+                      width: 10,
+                      height: 10,
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ],
+                )
+              : Icon(icon, color: Colors.white, size: 24)),
+    );
+  }
+
+  Widget _buildTopIconWithS() {
+    return Container(
+      width: 50,
+      height: 50,
+      decoration: const BoxDecoration(
+        color: Color(0xFF0D3A3A),
+        shape: BoxShape.circle,
+      ),
+      child: const Stack(
+        alignment: Alignment.center,
+        children: [
+          Icon(Icons.circle, color: Colors.white, size: 30),
+          Text(
+            'S',
+            style: TextStyle(
+              color: Colors.red,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCenterIcon(IconData icon) {
+    return Container(
+      width: 50,
+      height: 50,
+      decoration: const BoxDecoration(
+        color: Color(0xFF1A4D21),
+        shape: BoxShape.circle,
+      ),
+      child: Icon(icon, color: Colors.white, size: 24),
+    );
+  }
+
+  Widget _buildCircularControl({required Widget child}) {
+    return Container(
+      width: 200,
+      height: 200,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: RadialGradient(
+          colors: [
+            const Color(0xFF1A4D21).withOpacity(0.6),
+            const Color(0xFF183E1D).withOpacity(0.4),
+            Colors.transparent,
+          ],
+          stops: const [0.0, 0.6, 1.0],
+        ),
+      ),
+      child: child,
+    );
+  }
+
+  Widget _buildControlButton(String text,
+      {bool isTop = false, bool isBottom = false, bool isLeft = false, bool isRight = false}) {
+    return Expanded(
+      child: Center(
+        child: Text(
+          text,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 42,
+            fontWeight: FontWeight.w300,
+          ),
+        ),
+      ),
+    );
+  }
+}
