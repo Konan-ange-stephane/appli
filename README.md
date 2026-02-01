@@ -1,6 +1,6 @@
 # Télécommande Voiture - Application Flutter
 
-Application Flutter permettant de contrôler une voiture grâce à deux modes : **Manette** et **Télécommande**.
+Application Flutter permettant de contrôler un robot Arduino via Bluetooth.
 
 ## Structure du projet
 
@@ -17,7 +17,7 @@ lib/
 │   └── stop_button.dart         # Bouton STOP
 ├── services/                    # Services de communication
 │   ├── command_service.dart     # Service centralisé d'envoi de commandes
-│   └── bluetooth_service.dart   # Service Bluetooth
+│   └── bluetooth_service.dart   # Service de communication Bluetooth
 ├── models/                      # Modèles de données
 │   └── command.dart             # Modèle de commande
 └── utils/                       # Utilitaires
@@ -31,28 +31,60 @@ lib/
   - **Mode Manette**
   - **Mode Télécommande**
 
-### Mode Manette
-- Boutons directionnels :
-  - **Avant** (F:x)
-  - **Arrière** (B:x)
-  - **Gauche** (L:x)
-  - **Droite** (R:x)
-- **Slider de vitesse** (0-255)
-- **Bouton STOP** (S)
-
 ### Mode Télécommande
-- Interface alternative plus minimaliste
-- À implémenter selon les besoins
+- Interface avec pad de direction circulaire
+- Boutons directionnels :
+  - **Avancer** (A)
+  - **Reculer** (R)
+  - **Gauche** (G)
+  - **Droite** (D)
+- **Slider de vitesse** (50-255) - pour référence visuelle uniquement
+- **Bouton STOP** (S)
+- **Indicateur de connexion Bluetooth** - cliquer pour scanner et se connecter/déconnecter
 
 ### Service de commandes
-Le `CommandService` centralise l'envoi des messages via Bluetooth.
+Le `CommandService` centralise l'envoi des messages via Bluetooth vers l'Arduino.
 
-**Format des commandes :**
-- `F:x` → Avancer (Forward) avec vitesse x
-- `B:x` → Reculer (Backward) avec vitesse x
-- `L:x` → Gauche (Left) avec vitesse x
-- `R:x` → Droite (Right) avec vitesse x
+**Format des commandes (protocole Arduino) :**
+- `A` → Avancer
+- `R` → Reculer
+- `G` → Tourner à gauche
+- `D` → Tourner à droite
 - `S` → Stop
+
+**Note :** L'Arduino attend un seul caractère. Les commandes avec vitesse (ex: `F:150`) ne sont pas supportées.
+
+## Connexion à l'Arduino
+
+### Prérequis
+1. Module Bluetooth (HC-05, HC-06, ou similaire) connecté à l'Arduino
+2. Code Arduino chargé sur la carte avec support Bluetooth Serial
+3. Bluetooth activé sur votre appareil (téléphone/tablette/ordinateur)
+4. Module Bluetooth appairé avec votre appareil
+
+### Étapes de connexion
+1. Activer Bluetooth sur votre appareil
+2. Lancer l'application
+3. Aller dans le mode **Télécommande**
+4. Cliquer sur l'indicateur de connexion Bluetooth en haut
+5. Si Bluetooth est désactivé, l'application proposera de l'activer
+6. L'application va scanner les appareils Bluetooth disponibles
+7. Sélectionner votre module Bluetooth (ex: HC-05, HC-06)
+8. L'indicateur passera à "Connecté" en vert
+
+### Configuration Bluetooth
+- L'application utilise le service Serial Bluetooth standard
+- Le module Bluetooth doit être configuré en mode Serial (SPP)
+- Baud rate recommandé : 9600 (configuré dans le code Arduino)
+
+## Code Arduino
+
+Le code Arduino attend les commandes suivantes via Serial (9600 baud) :
+- `A` : Avancer (moteurs à vitesse max)
+- `R` : Reculer (moteurs à vitesse max)
+- `G` : Tourner à gauche (vitesses différenciées)
+- `D` : Tourner à droite (vitesses différenciées)
+- `S` : Arrêter tous les moteurs
 
 ## Getting Started
 
@@ -61,14 +93,21 @@ Le `CommandService` centralise l'envoi des messages via Bluetooth.
 flutter pub get
 ```
 
-2. Lancer l'application :
+2. Connecter l'Arduino et charger le code fourni
+
+3. Lancer l'application :
 ```bash
 flutter run
 ```
 
-## TODO
+4. Se connecter à l'Arduino via l'interface
 
-- [ ] Implémenter la logique Bluetooth
-- [ ] Finaliser l'interface Mode Télécommande
-- [ ] Ajouter la gestion des erreurs
-- [ ] Ajouter les tests unitaires
+## Dépendances
+
+- `flutter_blue_plus` : Communication Bluetooth avec l'Arduino
+
+## Notes
+
+- Les commandes Klaxon (H) et Phares (LON/LOFF) ne sont pas encore implémentées dans le code Arduino
+- Le slider de vitesse est présent pour référence visuelle, mais l'Arduino utilise des vitesses fixes
+- L'application fonctionne sur Linux, Windows et macOS

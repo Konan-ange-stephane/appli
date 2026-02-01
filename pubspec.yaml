@@ -1,5 +1,5 @@
 name: telecommande
-description: Application de télécommande Flutter
+description: "Application de télécommande Flutter pour contrôle d'appareils via Bluetooth"
 publish_to: 'none'
 
 version: 1.0.0+1
@@ -10,12 +10,40 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  
+  # Design et UI
   cupertino_icons: ^1.0.8
+  
+  # Bluetooth principal
+  flutter_blue_plus: ^2.1.0
+  
+  # Gestion des permissions
+  permission_handler: ^12.0.1
+  
+  # Pour Linux - version alternative car le git n'existe pas
+  # serial_port_linux: ^0.1.0  # Removed - cause des problèmes
+  
+  # Utilitaires
+  provider: ^6.1.2             # Gestion d'état
+  shared_preferences: ^2.2.2   # Sauvegarde des préférences
+  
+  # Connectivity - version corrigée
+  connectivity_plus: ^7.0.0    # Version stable
+  
+  # Feedback utilisateur
+  fluttertoast: ^9.0.0         # Notifications toast
+  
+  # Vibration - version compatible
+  vibration: ^3.1.5            # Version mise à jour
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^5.0.0
+  flutter_lints: ^6.0.0
 
 flutter:
   uses-material-design: true
+  
+  # Assets
+  assets:
+    - assets/images/

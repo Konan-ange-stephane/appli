@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:telecommande/models/device_info.dart';
 import 'package:telecommande/services/command_service.dart';
 
-/// Écran du Mode Télécommande - Interface avec pad de direction circulaire amélioré
 class TelecommandeScreen extends StatefulWidget {
   const TelecommandeScreen({super.key});
 
@@ -24,14 +25,13 @@ class _TelecommandeScreenState extends State<TelecommandeScreen>
   // Couleurs du thème
   static const Color primaryGreen = Color(0xFF1A4D21);
   static const Color darkGreen = Color(0xFF183E1D);
-  static const Color tealGreen = Color(0xFF0D3A3A);
   static const Color accentGreen = Color(0xFF2ECC71);
 
   void _onButtonPressed(String direction, String command) {
     HapticFeedback.mediumImpact();
     setState(() => _activeButton = direction);
-    _commandService.sendCommand('$command:${_speed.toInt()}');
-    debugPrint('$direction - Vitesse: ${_speed.toInt()}');
+    _commandService.sendCommand(command);
+    debugPrint('$direction - Commande: $command');
   }
 
   void _onButtonReleased() {
@@ -46,49 +46,31 @@ class _TelecommandeScreenState extends State<TelecommandeScreen>
       body: SafeArea(
         child: Stack(
           children: [
-            // Fond avec effet de grille subtile
+            // Fond grille
             CustomPaint(
               size: Size.infinite,
               painter: GridPainter(),
             ),
-
-            // Contenu principal scrollable
             Column(
               children: [
-                // Header personnalisé (fixe)
                 _buildHeader(),
-
-                // Contenu scrollable
                 Expanded(
                   child: SingleChildScrollView(
                     physics: const BouncingScrollPhysics(),
                     child: Column(
                       children: [
-                        // Indicateurs en haut
                         _buildIndicators(),
-
                         const SizedBox(height: 15),
-
-                        // Pad directionnel principal
                         _buildDirectionalPad(),
-
                         const SizedBox(height: 20),
-
-                        // Slider de vitesse
                         _buildSpeedSlider(),
-
                         const SizedBox(height: 15),
-
-                        // Boutons d'action (klaxon, phares)
                         _buildActionButtons(),
-
                         const SizedBox(height: 15),
                       ],
                     ),
                   ),
                 ),
-
-                // Barre de navigation en bas (fixe)
                 _buildBottomBar(),
               ],
             ),
@@ -98,13 +80,13 @@ class _TelecommandeScreenState extends State<TelecommandeScreen>
     );
   }
 
+  /// Header
   Widget _buildHeader() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Bouton retour
           GestureDetector(
             onTap: () => Navigator.pop(context),
             child: Container(
@@ -118,8 +100,6 @@ class _TelecommandeScreenState extends State<TelecommandeScreen>
                   color: Colors.white, size: 20),
             ),
           ),
-
-          // Titre
           const Text(
             'TÉLÉCOMMANDE',
             style: TextStyle(
@@ -129,50 +109,55 @@ class _TelecommandeScreenState extends State<TelecommandeScreen>
               letterSpacing: 3,
             ),
           ),
-
-          // Bouton menu
-          GestureDetector(
-            onTap: () => debugPrint('Menu'),
-            child: Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: primaryGreen.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: primaryGreen.withOpacity(0.5)),
+          Row(
+            children: [
+              // Refresh button
+              Container(
+                margin: const EdgeInsets.only(right: 8),
+                child: IconButton(
+                  icon: const Icon(Icons.refresh, color: Colors.white, size: 20),
+                  padding: const EdgeInsets.all(8),
+                  constraints: const BoxConstraints(),
+                  onPressed: _refreshDevices,
+                ),
               ),
-              child: const Icon(Icons.more_vert, color: Colors.white, size: 20),
-            ),
+              GestureDetector(
+                onTap: () => debugPrint('Menu'),
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: primaryGreen.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: primaryGreen.withOpacity(0.5)),
+                  ),
+                  child: const Icon(Icons.more_vert, color: Colors.white, size: 20),
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
+  /// Indicateurs Bluetooth, batterie, signal
   Widget _buildIndicators() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          // Indicateur Bluetooth
           _buildIndicator(
             icon: Icons.bluetooth,
             label: isConnected ? 'Connecté' : 'Déconnecté',
             isActive: isConnected,
-            onTap: () {
-              setState(() => isConnected = !isConnected);
-              HapticFeedback.lightImpact();
-            },
+            onTap: _onBluetoothTap,
           ),
-
-          // Indicateur de batterie
           _buildIndicator(
             icon: Icons.battery_full,
             label: '85%',
             isActive: true,
           ),
-
-          // Indicateur de signal
           _buildIndicator(
             icon: Icons.signal_cellular_alt,
             label: 'Fort',
@@ -181,6 +166,191 @@ class _TelecommandeScreenState extends State<TelecommandeScreen>
         ],
       ),
     );
+  }
+
+  void _onBluetoothTap() async {
+    if (isConnected) {
+      await _commandService.disconnect();
+      setState(() => isConnected = false);
+      HapticFeedback.lightImpact();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Déconnecté de l\'Arduino'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+      return;
+    }
+
+    // Vérifie si le Bluetooth est activé
+    final bluetoothEnabled = await _commandService.isBluetoothEnabled();
+    if (!bluetoothEnabled) {
+      if (mounted) {
+        final enable = await showDialog<bool>(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('Bluetooth désactivé'),
+            content: const Text('Voulez-vous activer Bluetooth ?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Annuler'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Activer'),
+              ),
+            ],
+          ),
+        );
+
+        if (enable == true) {
+          await _commandService.turnOnBluetooth();
+          await Future.delayed(const Duration(seconds: 2));
+        } else {
+          return;
+        }
+      }
+    }
+
+    // Affiche le dialogue de scan
+    // Vérifie que le service localisation est activé sur Android (nécessaire au scan BLE)
+    final locationEnabled = await _commandService.isLocationServiceEnabled();
+    if (!locationEnabled) {
+      if (mounted) {
+        final open = await showDialog<bool>(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('Localisation désactivée'),
+            content: const Text('La localisation doit être activée pour scanner les périphériques Bluetooth. Voulez-vous ouvrir les paramètres ?'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler')),
+              TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Ouvrir')),
+            ],
+          ),
+        );
+        if (open == true) {
+          await openAppSettings();
+          return;
+        } else {
+          return;
+        }
+      }
+    }
+
+    final devices = await _commandService.scanDevices();
+    if (!mounted) return;
+
+    final selectedDevice = await showDialog<DeviceInfo>(
+      context: context,
+      builder: (_) => SimpleDialog(
+        title: const Text('Sélectionnez un appareil'),
+        children: devices
+            .map(
+              (d) => SimpleDialogOption(
+                onPressed: () => Navigator.pop(context, d),
+                child: Text((d.name.isNotEmpty) ? d.name : d.id),
+              ),
+            )
+            .toList(),
+      ),
+    );
+
+    if (selectedDevice != null) {
+      final connected = await _commandService.connect(selectedDevice);
+      if (!mounted) return;
+      setState(() => isConnected = connected);
+
+      final deviceName = (selectedDevice.name.isNotEmpty) ? selectedDevice.name : selectedDevice.id;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              connected ? 'Connecté à $deviceName' : 'Échec de connexion à $deviceName'),
+          backgroundColor: connected ? Colors.green : Colors.red,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  Future<void> _refreshDevices() async {
+    HapticFeedback.lightImpact();
+    final locationEnabled = await _commandService.isLocationServiceEnabled();
+    if (!locationEnabled) {
+      if (mounted) {
+        final open = await showDialog<bool>(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('Localisation désactivée'),
+            content: const Text('La localisation doit être activée pour scanner les périphériques Bluetooth. Voulez-vous ouvrir les paramètres ?'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler')),
+              TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Ouvrir')),
+            ],
+          ),
+        );
+        if (open == true) {
+          await openAppSettings();
+          return;
+        } else {
+          return;
+        }
+      }
+    }
+
+    final devices = await _commandService.scanDevices();
+    if (!mounted) return;
+
+    if (devices.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Aucun appareil trouvé'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+      return;
+    }
+
+    final selectedDevice = await showDialog<DeviceInfo>(
+      context: context,
+      builder: (_) => SimpleDialog(
+        title: const Text('Sélectionnez un appareil'),
+        children: devices
+            .map(
+              (d) => SimpleDialogOption(
+                onPressed: () => Navigator.pop(context, d),
+                child: Text((d.name.isNotEmpty) ? d.name : d.id),
+              ),
+            )
+            .toList(),
+      ),
+    );
+
+    if (selectedDevice != null) {
+      final connected = await _commandService.connect(selectedDevice);
+      if (!mounted) return;
+      setState(() => isConnected = connected);
+
+      final deviceName = (selectedDevice.name.isNotEmpty) ? selectedDevice.name : selectedDevice.id;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(connected ? 'Connecté à $deviceName' : 'Échec de connexion à $deviceName'),
+          backgroundColor: connected ? Colors.green : Colors.red,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Scan terminé: ${devices.length} appareil(s) trouvé(s)')),
+      );
+    }
   }
 
   Widget _buildIndicator({
@@ -205,25 +375,16 @@ class _TelecommandeScreenState extends State<TelecommandeScreen>
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              icon,
-              color: isActive ? accentGreen : Colors.grey,
-              size: 18,
-            ),
+            Icon(icon, color: isActive ? accentGreen : Colors.grey, size: 18),
             const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                color: isActive ? Colors.white : Colors.grey,
-                fontSize: 12,
-              ),
-            ),
+            Text(label, style: TextStyle(color: isActive ? Colors.white : Colors.grey, fontSize: 12)),
           ],
         ),
       ),
     );
   }
 
+  /// Pad directionnel
   Widget _buildDirectionalPad() {
     return Center(
       child: SizedBox(
@@ -232,89 +393,38 @@ class _TelecommandeScreenState extends State<TelecommandeScreen>
         child: Stack(
           alignment: Alignment.center,
           children: [
-            // Cercle externe avec glow
+            // Cercle extérieur
             Container(
               width: 280,
               height: 280,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
-                  colors: [
-                    primaryGreen.withOpacity(0.4),
-                    darkGreen.withOpacity(0.2),
-                    Colors.transparent,
-                  ],
+                  colors: [primaryGreen.withOpacity(0.4), darkGreen.withOpacity(0.2), Colors.transparent],
                   stops: const [0.3, 0.7, 1.0],
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: primaryGreen.withOpacity(0.3),
-                    blurRadius: 30,
-                    spreadRadius: 5,
-                  ),
-                ],
+                boxShadow: [BoxShadow(color: primaryGreen.withOpacity(0.3), blurRadius: 30, spreadRadius: 5)],
               ),
             ),
-
             // Cercle intermédiaire
             Container(
               width: 220,
               height: 220,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(
-                  color: primaryGreen.withOpacity(0.4),
-                  width: 2,
-                ),
+                border: Border.all(color: primaryGreen.withOpacity(0.4), width: 2),
               ),
             ),
-
-            // Bouton Haut (Avancer)
-            Positioned(
-              top: 15,
-              child: _buildDirectionButton(
-                direction: 'up',
-                icon: Icons.keyboard_arrow_up,
-                command: 'F',
-              ),
-            ),
-
-            // Bouton Bas (Reculer)
-            Positioned(
-              bottom: 15,
-              child: _buildDirectionButton(
-                direction: 'down',
-                icon: Icons.keyboard_arrow_down,
-                command: 'B',
-              ),
-            ),
-
-            // Bouton Gauche
-            Positioned(
-              left: 15,
-              child: _buildDirectionButton(
-                direction: 'left',
-                icon: Icons.keyboard_arrow_left,
-                command: 'L',
-              ),
-            ),
-
-            // Bouton Droite
-            Positioned(
-              right: 15,
-              child: _buildDirectionButton(
-                direction: 'right',
-                icon: Icons.keyboard_arrow_right,
-                command: 'R',
-              ),
-            ),
-
-            // Bouton central STOP
+            // Boutons directionnels
+            Positioned(top: 15, child: _buildDirectionButton('up', Icons.keyboard_arrow_up, 'A')),
+            Positioned(bottom: 15, child: _buildDirectionButton('down', Icons.keyboard_arrow_down, 'R')),
+            Positioned(left: 15, child: _buildDirectionButton('left', Icons.keyboard_arrow_left, 'G')),
+            Positioned(right: 15, child: _buildDirectionButton('right', Icons.keyboard_arrow_right, 'D')),
+            // Bouton STOP
             GestureDetector(
               onTap: () {
                 HapticFeedback.heavyImpact();
                 _commandService.sendCommand('S');
-                debugPrint('STOP');
               },
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 150),
@@ -322,33 +432,11 @@ class _TelecommandeScreenState extends State<TelecommandeScreen>
                 height: 90,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      primaryGreen,
-                      darkGreen,
-                    ],
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: accentGreen.withOpacity(0.4),
-                      blurRadius: 20,
-                      spreadRadius: 2,
-                    ),
-                  ],
-                  border: Border.all(
-                    color: accentGreen.withOpacity(0.5),
-                    width: 2,
-                  ),
+                  gradient: LinearGradient(colors: [primaryGreen, darkGreen]),
+                  boxShadow: [BoxShadow(color: accentGreen.withOpacity(0.4), blurRadius: 20, spreadRadius: 2)],
+                  border: Border.all(color: accentGreen.withOpacity(0.5), width: 2),
                 ),
-                child: const Center(
-                  child: Icon(
-                    Icons.power_settings_new,
-                    color: Colors.white,
-                    size: 40,
-                  ),
-                ),
+                child: const Center(child: Icon(Icons.power_settings_new, color: Colors.white, size: 40)),
               ),
             ),
           ],
@@ -357,13 +445,8 @@ class _TelecommandeScreenState extends State<TelecommandeScreen>
     );
   }
 
-  Widget _buildDirectionButton({
-    required String direction,
-    required IconData icon,
-    required String command,
-  }) {
+  Widget _buildDirectionButton(String direction, IconData icon, String command) {
     final bool isActive = _activeButton == direction;
-
     return GestureDetector(
       onTapDown: (_) => _onButtonPressed(direction, command),
       onTapUp: (_) => _onButtonReleased(),
@@ -376,34 +459,16 @@ class _TelecommandeScreenState extends State<TelecommandeScreen>
           shape: BoxShape.circle,
           color: isActive ? accentGreen : primaryGreen,
           boxShadow: isActive
-              ? [
-                  BoxShadow(
-                    color: accentGreen.withOpacity(0.6),
-                    blurRadius: 20,
-                    spreadRadius: 5,
-                  ),
-                ]
-              : [
-                  BoxShadow(
-                    color: primaryGreen.withOpacity(0.3),
-                    blurRadius: 10,
-                    spreadRadius: 2,
-                  ),
-                ],
-          border: Border.all(
-            color: isActive ? Colors.white : accentGreen.withOpacity(0.3),
-            width: 2,
-          ),
+              ? [BoxShadow(color: accentGreen.withOpacity(0.6), blurRadius: 20, spreadRadius: 5)]
+              : [BoxShadow(color: primaryGreen.withOpacity(0.3), blurRadius: 10, spreadRadius: 2)],
+          border: Border.all(color: isActive ? Colors.white : accentGreen.withOpacity(0.3), width: 2),
         ),
-        child: Icon(
-          icon,
-          color: Colors.white,
-          size: isActive ? 45 : 40,
-        ),
+        child: Icon(icon, color: Colors.white, size: isActive ? 45 : 40),
       ),
     );
   }
 
+  /// Slider de vitesse
   Widget _buildSpeedSlider() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 30),
@@ -412,14 +477,7 @@ class _TelecommandeScreenState extends State<TelecommandeScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'VITESSE',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 12,
-                  letterSpacing: 2,
-                ),
-              ),
+              const Text('VITESSE', style: TextStyle(color: Colors.white70, fontSize: 12, letterSpacing: 2)),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 decoration: BoxDecoration(
@@ -427,110 +485,51 @@ class _TelecommandeScreenState extends State<TelecommandeScreen>
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: accentGreen.withOpacity(0.5)),
                 ),
-                child: Text(
-                  '${_speed.toInt()}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                child: Text('${_speed.toInt()}', style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
               ),
             ],
           ),
           const SizedBox(height: 10),
-          SliderTheme(
-            data: SliderTheme.of(context).copyWith(
-              activeTrackColor: accentGreen,
-              inactiveTrackColor: primaryGreen.withOpacity(0.3),
-              thumbColor: accentGreen,
-              overlayColor: accentGreen.withOpacity(0.2),
-              trackHeight: 8,
-              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 14),
-            ),
-            child: Slider(
-              value: _speed,
-              min: 50,
-              max: 255,
-              onChanged: (value) {
-                setState(() => _speed = value);
-                if (value.toInt() % 25 == 0) {
-                  HapticFeedback.selectionClick();
-                }
-              },
-            ),
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('50', style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 10)),
-              Text('LENT', style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 10)),
-              Text('MOYEN', style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 10)),
-              Text('RAPIDE', style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 10)),
-              Text('255', style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 10)),
-            ],
+          Slider(
+            value: _speed,
+            min: 50,
+            max: 255,
+            activeColor: accentGreen,
+            inactiveColor: primaryGreen.withOpacity(0.3),
+            onChanged: (value) => setState(() => _speed = value),
           ),
         ],
       ),
     );
   }
 
+  /// Boutons actions
   Widget _buildActionButtons() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 40),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          // Bouton Klaxon
+          _buildActionButton(Icons.volume_up, 'KLAXON', () => _commandService.sendCommand('H')),
           _buildActionButton(
-            icon: Icons.volume_up,
-            label: 'KLAXON',
-            onTap: () {
-              HapticFeedback.heavyImpact();
-              _commandService.sendCommand('H');
-              debugPrint('Klaxon');
-            },
-          ),
-
-          // Bouton Phares
-          _buildActionButton(
-            icon: lightsOn ? Icons.lightbulb : Icons.lightbulb_outline,
-            label: 'PHARES',
-            isActive: lightsOn,
-            onTap: () {
+            lightsOn ? Icons.lightbulb : Icons.lightbulb_outline,
+            'PHARES',
+            () {
               setState(() => lightsOn = !lightsOn);
-              HapticFeedback.mediumImpact();
               _commandService.sendCommand(lightsOn ? 'LON' : 'LOFF');
-              debugPrint('Phares: ${lightsOn ? "ON" : "OFF"}');
             },
           ),
-
-          // Bouton d'urgence
-          _buildActionButton(
-            icon: Icons.warning_amber,
-            label: 'URGENCE',
-            color: Colors.red,
-            onTap: () {
-              HapticFeedback.heavyImpact();
-              _commandService.sendCommand('S');
-              setState(() => _speed = 50);
-              debugPrint('ARRÊT D\'URGENCE');
-            },
-          ),
+          _buildActionButton(Icons.warning_amber, 'URGENCE', () {
+            _commandService.sendCommand('S');
+            setState(() => _speed = 50);
+          }, color: Colors.red),
         ],
       ),
     );
   }
 
-  Widget _buildActionButton({
-    required IconData icon,
-    required String label,
-    bool isActive = false,
-    Color? color,
-    required VoidCallback onTap,
-  }) {
-    final buttonColor = color ?? (isActive ? accentGreen : primaryGreen);
-
+  Widget _buildActionButton(IconData icon, String label, VoidCallback onTap, {Color? color}) {
+    final buttonColor = color ?? primaryGreen;
     return GestureDetector(
       onTap: onTap,
       child: Column(
@@ -540,35 +539,20 @@ class _TelecommandeScreenState extends State<TelecommandeScreen>
             height: 60,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: buttonColor.withOpacity(isActive ? 0.8 : 0.6),
-              boxShadow: [
-                BoxShadow(
-                  color: buttonColor.withOpacity(0.4),
-                  blurRadius: 15,
-                  spreadRadius: 2,
-                ),
-              ],
-              border: Border.all(
-                color: isActive ? Colors.white : buttonColor.withOpacity(0.5),
-                width: 2,
-              ),
+              color: buttonColor.withOpacity(0.6),
+              boxShadow: [BoxShadow(color: buttonColor.withOpacity(0.4), blurRadius: 15, spreadRadius: 2)],
+              border: Border.all(color: buttonColor.withOpacity(0.5), width: 2),
             ),
             child: Icon(icon, color: Colors.white, size: 28),
           ),
           const SizedBox(height: 6),
-          Text(
-            label,
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.7),
-              fontSize: 10,
-              letterSpacing: 1,
-            ),
-          ),
+          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 10, letterSpacing: 1)),
         ],
       ),
     );
   }
 
+  /// Bottom bar
   Widget _buildBottomBar() {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -584,27 +568,14 @@ class _TelecommandeScreenState extends State<TelecommandeScreen>
           IconButton(
             icon: const Icon(Icons.home_outlined, color: Colors.white, size: 24),
             onPressed: () => Navigator.pop(context),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
           ),
           IconButton(
-            icon: Icon(
-              isJoystickMode ? Icons.gamepad : Icons.touch_app,
-              color: Colors.white,
-              size: 24,
-            ),
-            onPressed: () {
-              setState(() => isJoystickMode = !isJoystickMode);
-              HapticFeedback.selectionClick();
-            },
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
+            icon: Icon(isJoystickMode ? Icons.gamepad : Icons.touch_app, color: Colors.white, size: 24),
+            onPressed: () => setState(() => isJoystickMode = !isJoystickMode),
           ),
           IconButton(
             icon: const Icon(Icons.settings_outlined, color: Colors.white, size: 24),
             onPressed: () => debugPrint('Settings'),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
           ),
         ],
       ),
@@ -612,20 +583,17 @@ class _TelecommandeScreenState extends State<TelecommandeScreen>
   }
 }
 
-/// Painter pour dessiner une grille subtile en fond
+/// Grille subtile en fond
 class GridPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
       ..color = const Color(0xFF1A4D21).withOpacity(0.1)
       ..strokeWidth = 0.5;
-
-    const double spacing = 30;
-
+    const spacing = 30.0;
     for (double i = 0; i < size.width; i += spacing) {
       canvas.drawLine(Offset(i, 0), Offset(i, size.height), paint);
     }
-
     for (double i = 0; i < size.height; i += spacing) {
       canvas.drawLine(Offset(0, i), Offset(size.width, i), paint);
     }

@@ -1,35 +1,34 @@
-/// Modèle représentant une commande à envoyer
+/// Modèle représentant une commande à envoyer selon le protocole Arduino
 class Command {
   final CommandType type;
-  final int? value;
 
   Command({
     required this.type,
-    this.value,
   });
 
-  /// Convertit la commande en string pour l'envoi
+  /// Convertit la commande en string pour l'envoi vers l'Arduino
+  /// L'Arduino attend un seul caractère: A, R, G, D, ou S
   String toProtocolString() {
     switch (type) {
       case CommandType.forward:
-        return 'F:$value';
+        return 'A'; // Avancer
       case CommandType.backward:
-        return 'B:$value';
+        return 'R'; // Reculer
       case CommandType.left:
-        return 'L:$value';
+        return 'G'; // Gauche
       case CommandType.right:
-        return 'R:$value';
+        return 'D'; // Droite
       case CommandType.stop:
-        return 'S';
+        return 'S'; // Stop
     }
   }
 }
 
 enum CommandType {
-  forward,
-  backward,
-  left,
-  right,
-  stop,
+  forward,   // A - Avancer
+  backward,  // R - Reculer
+  left,      // G - Gauche
+  right,     // D - Droite
+  stop,      // S - Stop
 }
 
