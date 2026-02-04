@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -21,22 +22,165 @@ class _TelecommandeScreenState extends State<TelecommandeScreen>
 
   // États des boutons pour l'animation
   String? _activeButton;
-
+  
+  // Timer pour éviter les envois trop rapides
+  DateTime? _lastCommandTime;
+  static const Duration _minCommandInterval = Duration(milliseconds: 100);
+  
+  // Pour le maintien des boutons
+  Timer? _continuousTimer;
+  String? _continuousDirection;
+  String? _continuousCommand;
+  static const Duration _continuousInterval = Duration(milliseconds: 200);
+  
+  // Pour le debounce de la vitesse
+  Timer? _speedTimer;
+  
   // Couleurs du thème
   static const Color primaryGreen = Color(0xFF1A4D21);
   static const Color darkGreen = Color(0xFF183E1D);
   static const Color accentGreen = Color(0xFF2ECC71);
+  static const Color errorRed = Color(0xFFE74C3C);
 
   void _onButtonPressed(String direction, String command) {
+    _stopContinuousCommand(); // Arrêter tout maintien en cours
+    
+    // Éviter les commandes trop rapides
+    final now = DateTime.now();
+    if (_lastCommandTime != null && 
+        now.difference(_lastCommandTime!) < _minCommandInterval) {
+      return;
+    }
+    
     HapticFeedback.mediumImpact();
     setState(() => _activeButton = direction);
+    _lastCommandTime = now;
+    
+    // DEBUG
+    debugPrint('$direction - Commande: "$command"');
+    
     _commandService.sendCommand(command);
-    debugPrint('$direction - Commande: $command');
   }
 
   void _onButtonReleased() {
+    _stopContinuousCommand(); // Arrêter le maintien
     setState(() => _activeButton = null);
     _commandService.sendCommand('S');
+  }
+
+  // Pour le maintien long des boutons
+  void _startContinuousCommand(String direction, String command) {
+    if (!isConnected) return;
+    
+    setState(() {
+      _activeButton = direction;
+      _continuousDirection = direction;
+      _continuousCommand = command;
+    });
+    
+    // Envoyer immédiatement
+    _commandService.sendCommand(command);
+    
+    // Puis répéter toutes les 200ms
+    _continuousTimer = Timer.periodic(_continuousInterval, (timer) {
+      if (isConnected && _continuousCommand != null) {
+        _commandService.sendCommand(_continuousCommand!);
+      }
+    });
+  }
+  
+  void _stopContinuousCommand() {
+    _continuousTimer?.cancel();
+    _continuousTimer = null;
+    _continuousDirection = null;
+    _continuousCommand = null;
+  }
+
+  // Gestion de la vitesse avec debounce
+  void _debounceSpeedChange(int speed) {
+    _speedTimer?.cancel();
+    
+    _speedTimer = Timer(const Duration(milliseconds: 300), () {
+      if (isConnected) {
+        _commandService.sendCommand('V$speed');
+        debugPrint('⚡ Vitesse réglée: V$speed');
+      }
+    });
+  }
+
+  // Test de toutes les commandes
+  void _testAllCommands() async {
+    if (!isConnected) {
+      _showErrorSnackbar('Non connecté au Bluetooth');
+      return;
+    }
+    
+    debugPrint('=== TEST DE TOUTES LES COMMANDES ===');
+    final commands = [
+      {'name': 'AVANCER', 'cmd': 'A'},
+      {'name': 'RECULER', 'cmd': 'R'},
+      {'name': 'GAUCHE', 'cmd': 'G'},
+      {'name': 'DROITE', 'cmd': 'D'},
+      {'name': 'STOP', 'cmd': 'S'},
+    ];
+    
+    for (var cmd in commands) {
+      debugPrint('Test: ${cmd['name']} - ${cmd['cmd']}');
+      try {
+        await _commandService.sendCommand(cmd['cmd']!);
+      } catch (e) {
+        debugPrint('❌ Erreur ${cmd['name']}: $e');
+      }
+      await Future.delayed(const Duration(seconds: 1));
+    }
+    
+    // Test de la vitesse
+    debugPrint('Test vitesse: V${_speed.toInt()}');
+    await _commandService.sendCommand('V${_speed.toInt()}');
+    
+    debugPrint('=== FIN DU TEST ===');
+    
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Test des commandes terminé'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
+  }
+
+  void _showErrorSnackbar(String message) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: errorRed,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // Écouter les changements de connexion Bluetooth
+    _commandService.connectionState.listen((state) {
+      if (mounted) {
+        setState(() {
+          isConnected = _commandService.isConnected;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _continuousTimer?.cancel();
+    _speedTimer?.cancel();
+    _commandService.disconnect();
+    super.dispose();
   }
 
   @override
@@ -66,6 +210,8 @@ class _TelecommandeScreenState extends State<TelecommandeScreen>
                         _buildSpeedSlider(),
                         const SizedBox(height: 15),
                         _buildActionButtons(),
+                        const SizedBox(height: 15),
+                        _buildTestButton(),
                         const SizedBox(height: 15),
                       ],
                     ),
@@ -111,6 +257,17 @@ class _TelecommandeScreenState extends State<TelecommandeScreen>
           ),
           Row(
             children: [
+              // Test button
+              Container(
+                margin: const EdgeInsets.only(right: 8),
+                child: IconButton(
+                  icon: const Icon(Icons.bug_report, color: Colors.white, size: 20),
+                  padding: const EdgeInsets.all(8),
+                  constraints: const BoxConstraints(),
+                  onPressed: _testAllCommands,
+                  tooltip: 'Tester toutes les commandes',
+                ),
+              ),
               // Refresh button
               Container(
                 margin: const EdgeInsets.only(right: 8),
@@ -215,8 +372,7 @@ class _TelecommandeScreenState extends State<TelecommandeScreen>
       }
     }
 
-    // Affiche le dialogue de scan
-    // Vérifie que le service localisation est activé sur Android (nécessaire au scan BLE)
+    // Vérifie que le service localisation est activé sur Android
     final locationEnabled = await _commandService.isLocationServiceEnabled();
     if (!locationEnabled) {
       if (mounted) {
@@ -310,7 +466,7 @@ class _TelecommandeScreenState extends State<TelecommandeScreen>
           const SnackBar(
             content: Text('Aucun appareil trouvé'),
             backgroundColor: Colors.orange,
-            duration: Duration(seconds: 2),
+            duration: const Duration(seconds: 2),
           ),
         );
       }
@@ -451,6 +607,12 @@ class _TelecommandeScreenState extends State<TelecommandeScreen>
       onTapDown: (_) => _onButtonPressed(direction, command),
       onTapUp: (_) => _onButtonReleased(),
       onTapCancel: _onButtonReleased,
+      // MAINTIEN LONG
+      onLongPress: () => _startContinuousCommand(direction, command),
+      onLongPressEnd: (_) {
+        _stopContinuousCommand();
+        _onButtonReleased();
+      },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 100),
         width: isActive ? 70 : 65,
@@ -494,9 +656,14 @@ class _TelecommandeScreenState extends State<TelecommandeScreen>
             value: _speed,
             min: 50,
             max: 255,
+            divisions: 20,
+            label: _speed.round().toString(),
             activeColor: accentGreen,
             inactiveColor: primaryGreen.withOpacity(0.3),
-            onChanged: (value) => setState(() => _speed = value),
+            onChanged: (value) {
+              setState(() => _speed = value);
+              _debounceSpeedChange(value.toInt());
+            },
           ),
         ],
       ),
@@ -504,30 +671,44 @@ class _TelecommandeScreenState extends State<TelecommandeScreen>
   }
 
   /// Boutons actions
-  Widget _buildActionButtons() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 40),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          _buildActionButton(Icons.volume_up, 'KLAXON', () => _commandService.sendCommand('H')),
-          _buildActionButton(
-            lightsOn ? Icons.lightbulb : Icons.lightbulb_outline,
-            'PHARES',
-            () {
-              setState(() => lightsOn = !lightsOn);
-              _commandService.sendCommand(lightsOn ? 'LON' : 'LOFF');
-            },
-          ),
-          _buildActionButton(Icons.warning_amber, 'URGENCE', () {
+ 
+Widget _buildActionButtons() {
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 40),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        _buildActionButton(
+          Icons.volume_up, 
+          'BUZZER', 
+          () => _commandService.sendCommand('B'),
+          color: Colors.orange,
+        ),
+        _buildActionButton(
+          lightsOn ? Icons.lightbulb : Icons.lightbulb_outline,
+          'PHARES',
+          () {
+            setState(() => lightsOn = !lightsOn);
+            _commandService.sendCommand('X');  // Changé de 'LON'/'LOFF' à 'X'
+          },
+          color: Colors.yellow[700],
+        ),
+        _buildActionButton(
+          Icons.warning_amber, 
+          'URGENCE', 
+          () {
+            // En cas d'urgence : stop + buzzer + vitesse basse
             _commandService.sendCommand('S');
+            _commandService.sendCommand('B'); // Buzzer
             setState(() => _speed = 50);
-          }, color: Colors.red),
-        ],
-      ),
-    );
-  }
-
+            _debounceSpeedChange(50);
+          }, 
+          color: Colors.red,
+        ),
+      ],
+    ),
+  );
+}
   Widget _buildActionButton(IconData icon, String label, VoidCallback onTap, {Color? color}) {
     final buttonColor = color ?? primaryGreen;
     return GestureDetector(
@@ -548,6 +729,27 @@ class _TelecommandeScreenState extends State<TelecommandeScreen>
           const SizedBox(height: 6),
           Text(label, style: const TextStyle(color: Colors.white70, fontSize: 10, letterSpacing: 1)),
         ],
+      ),
+    );
+  }
+
+  /// Bouton de test
+  Widget _buildTestButton() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 40),
+      child: ElevatedButton.icon(
+        onPressed: isConnected ? _testAllCommands : null,
+        icon: const Icon(Icons.play_arrow, size: 18),
+        label: const Text('TESTER TOUTES LES COMMANDES'),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: accentGreen,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(25),
+          ),
+          elevation: 5,
+        ),
       ),
     );
   }

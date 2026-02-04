@@ -426,10 +426,14 @@ class BluetoothService {
     // Envoi via Classic (RFCOMM)
     try {
       final data = Uint8List.fromList(command.codeUnits);
-      if (_classicConnection != null && _classicConnection!.isConnected) {
-        _classicConnection!.output.add(data);
-        await _classicConnection!.output.allSent;
-        debugPrint('Commande envoyée via Classic RFCOMM: $command');
+      // Envoi via Classic (RFCOMM) via channel plateforme si connecté
+      if (_classicConnected) {
+        try {
+          final ok = await _platform.invokeMethod<bool>('send', {'data': data});
+          debugPrint('Commande envoyée via Classic platform channel: $command, ok=$ok');
+        } catch (e) {
+          debugPrint('Erreur envoi Classic via platform: $e');
+        }
         return;
       }
 
@@ -496,7 +500,16 @@ class BluetoothService {
   /// Déconnecte l'appareil Bluetooth
   Future<void> disconnect() async {
     try {
-      if (_classicConnection != null) {
+      // Si connexion Classic gérée côté plateforme, demander la déconnexion
+      if (_classicConnected) {
+        try {
+          await _platform.invokeMethod<bool>('disconnect');
+        } catch (e) {
+          debugPrint('Erreur déconnexion Classic via platform: $e');
+        }
+        _classicConnected = false;
+        _classicAddress = null;
+      } else if (_classicConnection != null) {
         await _classicConnection?.finish();
         _classicConnection = null;
         _classicDevice = null;
