@@ -1,207 +1,165 @@
 import 'package:flutter/material.dart';
 
-/// Écran Mode Manette avec l'interface de contrôle de mode_1
-class ManetteScreen extends StatelessWidget {
+void main() {
+  runApp(const MaterialApp(
+    debugShowCheckedModeBanner: false,
+    home: ManetteScreen(),
+  ));
+}
+
+class ManetteScreen extends StatefulWidget {
   const ManetteScreen({super.key});
 
   @override
+  State<ManetteScreen> createState() => _ManetteScreenState();
+}
+
+class _ManetteScreenState extends State<ManetteScreen>
+    with SingleTickerProviderStateMixin {
+  bool powerOn = false;
+
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+    _animation = Tween<double>(begin: 0.85, end: 1.0).animate(_controller)
+      ..addStatusListener((status) {
+        if (status == AnimationStatus.completed) _controller.reverse();
+      });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _animateButton(VoidCallback action) {
+    _controller.forward();
+    action();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final controlSize = screenWidth * 0.4;
+    const symbolIconSize = 24.0;
+
     return Scaffold(
       backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        elevation: 0,
+        centerTitle: true,
+        title: const Text(
+          "MANETTE",
+          style: TextStyle(
+            color: Colors.white,
+            letterSpacing: 2,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        backgroundColor: const Color(0xFF0F2F24),
+        selectedItemColor: const Color(0xFF6ED9A0),
+        unselectedItemColor: Colors.white70,
+        currentIndex: 1,
+        items: const [
+          BottomNavigationBarItem(
+              icon: Icon(Icons.home_outlined, size: 24), label: 'Home'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.gamepad, size: 24), label: 'Mode'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.settings_outlined, size: 24), label: 'Settings'),
+        ],
+      ),
       body: Stack(
         children: [
-          // Bouton retour
+          // Left Circle
           Positioned(
-            top: 40,
-            left: 10,
-            child: IconButton(
-              icon: const Icon(Icons.arrow_back, color: Colors.white),
-              onPressed: () => Navigator.pop(context),
-            ),
-          ),
-
-          // Top bar with icons
-          Positioned(
-            top: 40,
-            left: 60,
-            right: 0,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  // Left icons
-                  Row(
-                    children: [
-                      _buildTopIcon(Icons.rectangle_outlined),
-                      const SizedBox(width: 20),
-                      _buildTopIcon(Icons.lightbulb_outline),
-                      const SizedBox(width: 20),
-                      _buildTopIcon(Icons.local_parking),
-                      const SizedBox(width: 20),
-                      _buildTopIcon(Icons.warning_amber_outlined),
-                      const SizedBox(width: 20),
-                      _buildTopIconWithS(),
-                    ],
-                  ),
-                  // Right icons
-                  Row(
-                    children: [
-                      _buildTopIcon(Icons.build_outlined),
-                      const SizedBox(width: 20),
-                      _buildTopIcon(Icons.menu),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // Code icon top right
-          Positioned(
-            top: 110,
-            right: 20,
-            child: Container(
-              width: 50,
-              height: 50,
-              decoration: const BoxDecoration(
-                color: Color(0xFF1A4D21),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.code, color: Colors.white, size: 24),
-            ),
-          ),
-
-          // Left control (Up/Down - Forward/Backward)
-          Positioned(
-            left: 80,
-            bottom: 100,
+            left: screenWidth * 0.1,
+            bottom: screenHeight * 0.18,
             child: _buildCircularControl(
+              size: controlSize,
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  _buildControlButton('F', isTop: true),
+                  _buildControlButton('F', controlSize * 0.44),
                   Container(
                     height: 1,
-                    width: 80,
+                    width: controlSize * 0.36,
                     color: const Color(0xFF1A4D21),
                   ),
-                  _buildControlButton('B', isBottom: true),
+                  _buildControlButton('B', controlSize * 0.44),
                 ],
               ),
             ),
           ),
 
-          // Right control (Left/Right)
+          // Right Circle
           Positioned(
-            right: 80,
-            bottom: 100,
+            right: screenWidth * 0.1,
+            bottom: screenHeight * 0.18,
             child: _buildCircularControl(
+              size: controlSize,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  _buildControlButton('G', isLeft: true),
+                  _buildControlButton('G', controlSize * 0.44),
                   Container(
                     width: 1,
-                    height: 80,
+                    height: controlSize * 0.36,
                     color: const Color(0xFF1A4D21),
                   ),
-                  _buildControlButton('R', isRight: true),
+                  _buildControlButton('R', controlSize * 0.44),
                 ],
               ),
             ),
           ),
 
-          // Top center icons
+          // POWER BUTTON — Vert/Rouge
           Positioned(
-            top: 250,
-            left: 0,
-            right: 0,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const SizedBox(width: 100),
-                _buildCenterIcon(Icons.speed_outlined),
-                const SizedBox(width: 400),
-                _buildCenterIcon(Icons.campaign),
-              ],
-            ),
-          ),
-
-          // Center icon
-          Positioned(
-            top: 340,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: _buildCenterIcon(Icons.gps_fixed),
-            ),
-          ),
-
-          // Bottom center arrow
-          Positioned(
-            bottom: 20,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: Icon(
-                Icons.keyboard_arrow_up,
-                color: Colors.white.withOpacity(0.5),
-                size: 30,
+            left: screenWidth / 2 - (symbolIconSize + 20) / 2,
+            bottom: screenHeight * 0.18 + controlSize / 2 - (symbolIconSize + 20) / 2,
+            child: ScaleTransition(
+              scale: _animation,
+              child: _buildSymbolButton(
+                icon: Icons.power_settings_new,
+                iconSize: symbolIconSize,
+                active: powerOn,
+                onTap: () => _animateButton(() {
+                  setState(() => powerOn = !powerOn);
+                  debugPrint(powerOn ? 'Power ON' : 'Power OFF');
+                }),
               ),
             ),
           ),
-        ],
-      ),
-    );
-  }
 
-  Widget _buildTopIcon(IconData icon, {bool hasInnerCircle = false, Widget? customChild}) {
-    return Container(
-      width: 50,
-      height: 50,
-      decoration: const BoxDecoration(
-        color: Color(0xFF1A4D21),
-        shape: BoxShape.circle,
-      ),
-      child: customChild ??
-          (hasInnerCircle
-              ? Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Icon(icon, color: Colors.white, size: 30),
-                    Container(
-                      width: 10,
-                      height: 10,
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                  ],
-                )
-              : Icon(icon, color: Colors.white, size: 24)),
-    );
-  }
+          // Horn — Gris avec nuances de vert
+          Positioned(
+            left: screenWidth * 0.1 + controlSize / 2 - symbolIconSize / 2,
+            bottom: screenHeight * 0.18 - symbolIconSize - 10,
+            child: _buildSymbolButtonStatic(
+              icon: Icons.volume_up,
+              iconSize: symbolIconSize,
+            ),
+          ),
 
-  Widget _buildTopIconWithS() {
-    return Container(
-      width: 50,
-      height: 50,
-      decoration: const BoxDecoration(
-        color: Color(0xFF0D3A3A),
-        shape: BoxShape.circle,
-      ),
-      child: const Stack(
-        alignment: Alignment.center,
-        children: [
-          Icon(Icons.circle, color: Colors.white, size: 30),
-          Text(
-            'S',
-            style: TextStyle(
-              color: Colors.red,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
+          // Headlight — Gris avec nuances de vert
+          Positioned(
+            right: screenWidth * 0.1 + controlSize / 2 - symbolIconSize / 2,
+            bottom: screenHeight * 0.18 - symbolIconSize - 10,
+            child: _buildSymbolButtonStatic(
+              icon: Icons.lightbulb,
+              iconSize: symbolIconSize,
             ),
           ),
         ],
@@ -209,22 +167,10 @@ class ManetteScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildCenterIcon(IconData icon) {
+  Widget _buildCircularControl({required double size, required Widget child}) {
     return Container(
-      width: 50,
-      height: 50,
-      decoration: const BoxDecoration(
-        color: Color(0xFF1A4D21),
-        shape: BoxShape.circle,
-      ),
-      child: Icon(icon, color: Colors.white, size: 24),
-    );
-  }
-
-  Widget _buildCircularControl({required Widget child}) {
-    return Container(
-      width: 200,
-      height: 200,
+      width: size,
+      height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         gradient: RadialGradient(
@@ -240,9 +186,10 @@ class ManetteScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildControlButton(String text,
-      {bool isTop = false, bool isBottom = false, bool isLeft = false, bool isRight = false}) {
-    return Expanded(
+  Widget _buildControlButton(String text, double size) {
+    return SizedBox(
+      width: size,
+      height: size,
       child: Center(
         child: Text(
           text,
@@ -253,6 +200,49 @@ class ManetteScreen extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  // Boutons Power (avec état)
+  Widget _buildSymbolButton({
+    required IconData icon,
+    required double iconSize,
+    VoidCallback? onTap,
+    bool active = false,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: iconSize + 20,
+        height: iconSize + 20,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: active ? Colors.green : Colors.red,
+        ),
+        child: Icon(icon, color: Colors.white, size: iconSize),
+      ),
+    );
+  }
+
+  // Boutons phare  et claxon  (gris/vert)
+  Widget _buildSymbolButtonStatic({
+    required IconData icon,
+    required double iconSize,
+  }) {
+    return Container(
+      width: iconSize + 20,
+      height: iconSize + 20,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: RadialGradient(
+          colors: [
+            Colors.grey[700]!,
+            Colors.green.withOpacity(0.4),
+          ],
+          stops: const [0.0, 1.0],
+        ),
+      ),
+      child: Icon(icon, color: Colors.white, size: iconSize),
     );
   }
 }

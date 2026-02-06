@@ -22,20 +22,20 @@ class _TelecommandeScreenState extends State<TelecommandeScreen>
 
   // États des boutons pour l'animation
   String? _activeButton;
-  
+
   // Timer pour éviter les envois trop rapides
   DateTime? _lastCommandTime;
   static const Duration _minCommandInterval = Duration(milliseconds: 100);
-  
+
   // Pour le maintien des boutons
   Timer? _continuousTimer;
   String? _continuousDirection;
   String? _continuousCommand;
   static const Duration _continuousInterval = Duration(milliseconds: 200);
-  
+
   // Pour le debounce de la vitesse
   Timer? _speedTimer;
-  
+
   // Couleurs du thème
   static const Color primaryGreen = Color(0xFF1A4D21);
   static const Color darkGreen = Color(0xFF183E1D);
@@ -44,21 +44,21 @@ class _TelecommandeScreenState extends State<TelecommandeScreen>
 
   void _onButtonPressed(String direction, String command) {
     _stopContinuousCommand(); // Arrêter tout maintien en cours
-    
+
     // Éviter les commandes trop rapides
     final now = DateTime.now();
-    if (_lastCommandTime != null && 
+    if (_lastCommandTime != null &&
         now.difference(_lastCommandTime!) < _minCommandInterval) {
       return;
     }
-    
+
     HapticFeedback.mediumImpact();
     setState(() => _activeButton = direction);
     _lastCommandTime = now;
-    
+
     // DEBUG
     debugPrint('$direction - Commande: "$command"');
-    
+
     _commandService.sendCommand(command);
   }
 
@@ -71,16 +71,16 @@ class _TelecommandeScreenState extends State<TelecommandeScreen>
   // Pour le maintien long des boutons
   void _startContinuousCommand(String direction, String command) {
     if (!isConnected) return;
-    
+
     setState(() {
       _activeButton = direction;
       _continuousDirection = direction;
       _continuousCommand = command;
     });
-    
+
     // Envoyer immédiatement
     _commandService.sendCommand(command);
-    
+
     // Puis répéter toutes les 200ms
     _continuousTimer = Timer.periodic(_continuousInterval, (timer) {
       if (isConnected && _continuousCommand != null) {
@@ -88,7 +88,7 @@ class _TelecommandeScreenState extends State<TelecommandeScreen>
       }
     });
   }
-  
+
   void _stopContinuousCommand() {
     _continuousTimer?.cancel();
     _continuousTimer = null;
@@ -99,7 +99,7 @@ class _TelecommandeScreenState extends State<TelecommandeScreen>
   // Gestion de la vitesse avec debounce
   void _debounceSpeedChange(int speed) {
     _speedTimer?.cancel();
-    
+
     _speedTimer = Timer(const Duration(milliseconds: 300), () {
       if (isConnected) {
         _commandService.sendCommand('V$speed');
@@ -114,7 +114,7 @@ class _TelecommandeScreenState extends State<TelecommandeScreen>
       _showErrorSnackbar('Non connecté au Bluetooth');
       return;
     }
-    
+
     debugPrint('=== TEST DE TOUTES LES COMMANDES ===');
     final commands = [
       {'name': 'AVANCER', 'cmd': 'A'},
@@ -123,23 +123,23 @@ class _TelecommandeScreenState extends State<TelecommandeScreen>
       {'name': 'DROITE', 'cmd': 'D'},
       {'name': 'STOP', 'cmd': 'S'},
     ];
-    
+
     for (var cmd in commands) {
       debugPrint('Test: ${cmd['name']} - ${cmd['cmd']}');
       try {
         await _commandService.sendCommand(cmd['cmd']!);
       } catch (e) {
-        debugPrint('❌ Erreur ${cmd['name']}: $e');
+        debugPrint(' Erreur ${cmd['name']}: $e');
       }
       await Future.delayed(const Duration(seconds: 1));
     }
-    
+
     // Test de la vitesse
     debugPrint('Test vitesse: V${_speed.toInt()}');
     await _commandService.sendCommand('V${_speed.toInt()}');
-    
+
     debugPrint('=== FIN DU TEST ===');
-    
+
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -406,10 +406,10 @@ class _TelecommandeScreenState extends State<TelecommandeScreen>
         children: devices
             .map(
               (d) => SimpleDialogOption(
-                onPressed: () => Navigator.pop(context, d),
-                child: Text((d.name.isNotEmpty) ? d.name : d.id),
-              ),
-            )
+            onPressed: () => Navigator.pop(context, d),
+            child: Text((d.name.isNotEmpty) ? d.name : d.id),
+          ),
+        )
             .toList(),
       ),
     );
@@ -480,10 +480,10 @@ class _TelecommandeScreenState extends State<TelecommandeScreen>
         children: devices
             .map(
               (d) => SimpleDialogOption(
-                onPressed: () => Navigator.pop(context, d),
-                child: Text((d.name.isNotEmpty) ? d.name : d.id),
-              ),
-            )
+            onPressed: () => Navigator.pop(context, d),
+            child: Text((d.name.isNotEmpty) ? d.name : d.id),
+          ),
+        )
             .toList(),
       ),
     );
@@ -639,7 +639,7 @@ class _TelecommandeScreenState extends State<TelecommandeScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('VITESSE', style: TextStyle(color: Colors.white70, fontSize: 12, letterSpacing: 2)),
+              const Text('', style: TextStyle(color: Colors.white70, fontSize: 12, letterSpacing: 2)),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 decoration: BoxDecoration(
@@ -671,44 +671,44 @@ class _TelecommandeScreenState extends State<TelecommandeScreen>
   }
 
   /// Boutons actions
- 
-Widget _buildActionButtons() {
-  return Container(
-    padding: const EdgeInsets.symmetric(horizontal: 40),
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: [
-        _buildActionButton(
-          Icons.volume_up, 
-          'BUZZER', 
-          () => _commandService.sendCommand('B'),
-          color: Colors.orange,
-        ),
-        _buildActionButton(
-          lightsOn ? Icons.lightbulb : Icons.lightbulb_outline,
-          'PHARES',
-          () {
-            setState(() => lightsOn = !lightsOn);
-            _commandService.sendCommand('X');  // Changé de 'LON'/'LOFF' à 'X'
-          },
-          color: Colors.yellow[700],
-        ),
-        _buildActionButton(
-          Icons.warning_amber, 
-          'URGENCE', 
-          () {
-            // En cas d'urgence : stop + buzzer + vitesse basse
-            _commandService.sendCommand('S');
-            _commandService.sendCommand('B'); // Buzzer
-            setState(() => _speed = 50);
-            _debounceSpeedChange(50);
-          }, 
-          color: Colors.red,
-        ),
-      ],
-    ),
-  );
-}
+
+  Widget _buildActionButtons() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 40),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _buildActionButton(
+            Icons.volume_up,
+            'BUZZER',
+                () => _commandService.sendCommand('B'),
+            color: Colors.orange,
+          ),
+          _buildActionButton(
+            lightsOn ? Icons.lightbulb : Icons.lightbulb_outline,
+            'PHARES',
+                () {
+              setState(() => lightsOn = !lightsOn);
+              _commandService.sendCommand('X');  // Changé de 'LON'/'LOFF' à 'X'
+            },
+            color: Colors.yellow[700],
+          ),
+          _buildActionButton(
+            Icons.warning_amber,
+            'URGENCE',
+                () {
+              // En cas d'urgence : stop + buzzer + vitesse basse
+              _commandService.sendCommand('S');
+              _commandService.sendCommand('B'); // Buzzer
+              setState(() => _speed = 50);
+              _debounceSpeedChange(50);
+            },
+            color: Colors.red,
+          ),
+        ],
+      ),
+    );
+  }
   Widget _buildActionButton(IconData icon, String label, VoidCallback onTap, {Color? color}) {
     final buttonColor = color ?? primaryGreen;
     return GestureDetector(
